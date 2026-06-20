@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareLink AI Assistant</title>
+    <meta name="description" content="AI powered insights for your CareLink diabetes data.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="background-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <main class="container">
+        <header>
+            <h1>CareLink AI Assistant</h1>
+            <p>Upload your CareLink CSV to gain AI-powered insights, identify patterns, and chat with your data.</p>
+        </header>
+
+        <section class="upload-section glass-panel">
+            <div class="upload-area" id="drop-zone">
+                <div class="upload-icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </div>
+                <h3>Upload CareLink Data</h3>
+                <p>Drag and drop your CSV file here, or click to browse</p>
+                <input type="file" id="file-input" accept=".csv" hidden>
+                <button class="btn primary" id="browse-btn">Browse Files</button>
+            </div>
+            <div id="upload-status" class="status-message"></div>
+        </section>
+
+        <section class="chat-section glass-panel">
+            <div class="chat-header">
+                <h2>Data Insights Chat</h2>
+                <div class="status-indicator">
+                    <span class="dot"></span>
+                    <span id="chat-status-text">Waiting for data...</span>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages">
+                <div class="message system">
+                    <div class="avatar">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><path d="M12 8v14"></path><path d="M5 15l7-7 7 7"></path></svg>
+                    </div>
+                    <div class="bubble">
+                        Welcome! Upload your CareLink CSV above, then ask me questions about your glucose trends, patterns, or insights.
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Ask about your data..." disabled>
+                <button id="send-btn" class="btn primary icon-btn" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

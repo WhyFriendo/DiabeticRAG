@@ -79,5 +79,6 @@ def get_rag_chain():
 
 def answer_query(query: str) -> str:
     chain = get_rag_chain()
+    #fake commit
     response = chain.invoke(query)
     return response

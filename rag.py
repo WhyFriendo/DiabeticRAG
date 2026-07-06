@@ -18,14 +18,13 @@ def build_rag_system(csv_path: str):
     data = loader.load()
     
     print("Generating embeddings and building vector store...")
-    # Initialize embeddings
     embeddings = OpenAIEmbeddings(
         api_key=os.environ.get("OPENROUTER_API_KEY"),
         base_url="https://openrouter.ai/api/v1",
-        model="nomic-ai/nomic-embed-text-v1.5"
+        model="openai/text-embedding-3-small"
     )
     
-    # Create FAISS index
+
     vectorstore = FAISS.from_documents(data, embeddings)
     vectorstore.save_local(VECTOR_STORE_PATH)
     print(f"Vector store saved to {VECTOR_STORE_PATH}")
@@ -39,7 +38,7 @@ def get_rag_chain():
     embeddings = OpenAIEmbeddings(
         api_key=os.environ.get("OPENROUTER_API_KEY"),
         base_url="https://openrouter.ai/api/v1",
-        model="nomic-ai/nomic-embed-text-v1.5"
+        model="openai/text-embedding-3-small"
     )
     vectorstore = FAISS.load_local(VECTOR_STORE_PATH, embeddings, allow_dangerous_deserialization=True)
     
@@ -48,7 +47,7 @@ def get_rag_chain():
     llm = ChatOpenAI(
         api_key=os.environ.get("OPENROUTER_API_KEY"),
         base_url="https://openrouter.ai/api/v1",
-        model="google/gemini-1.5-flash", # Use any OpenRouter model like "anthropic/claude-3-haiku"
+        model="deepseek/deepseek-v4-flash", # Changed to DeepSeek v4 Flash as requested
         temperature=0.2
     )
     
@@ -56,7 +55,8 @@ def get_rag_chain():
         "You are an empathetic and helpful AI assistant specialized in analyzing diabetic CareLink data. "
         "Use the provided context containing the user's continuous glucose monitoring (CGM) and pump data "
         "to answer their questions. Provide insights, identify patterns, and highlight key points. "
-        "Always remind the user that you are an AI and they should consult a doctor for medical advice. "
+        "At the beginning of conversation remind the user that you are an AI and they should consult a doctor for medical advice."
+        "Don't use the internal data labels, talk to the user as to a non-technical person."
         "Context: {context}"
     )
     

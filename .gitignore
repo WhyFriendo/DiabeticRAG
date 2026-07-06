@@ -13,3 +13,4 @@ wheels/
 .env
 faiss_index/
 data/
+*.csv

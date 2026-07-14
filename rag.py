@@ -1,14 +1,16 @@
 import os
-import pandas as pd
 from langchain_community.document_loaders.csv_loader import CSVLoader
 from langchain_community.vectorstores import FAISS
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_openrouter import OpenRouter
+from langchain_openai import OpenAIEmbeddings
+from langchain_openrouter import ChatOpenRouter
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-
+from dotenv import load_dotenv
 VECTOR_STORE_PATH = "faiss_index"
+
+load_dotenv()
+
 
 def build_rag_system(csv_path: str):
     """Loads CSV, creates vector store, and saves it locally."""
@@ -45,11 +47,11 @@ def get_rag_chain():
 
     retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
 
-    llm = ChatOpenAI(
+    llm = ChatOpenRouter(
         api_key=os.environ.get("OPENROUTER_API_KEY"),
-        base_url="https://openrouter.ai/api/v1",
+        # base_url="https://openrouter.ai/api/v1",
         model="deepseek/deepseek-v4-flash",
-        temperature=0.2
+        temperature=0
     )
 
     system_prompt = (
@@ -57,7 +59,7 @@ def get_rag_chain():
         "Use the provided context containing the user's continuous glucose monitoring (CGM) and pump data "
         "to answer their questions. Provide insights, identify patterns, and highlight key points. "
         "At the beginning of conversation remind the user that you are an AI and they should consult a doctor for medical advice."
-        "Don't use the internal data labels, talk to the user as to a non-technical person."
+        "Don't use the internal data labels, talk to the user as to a non-technical person. If you are unsure about the answer, say 'I don't know' instead of making up an answer. "
         "Context: {context}"
     )
 

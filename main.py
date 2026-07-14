@@ -6,11 +6,9 @@ import os
 import shutil
 import csv
 from dotenv import load_dotenv
-
+from rag import build_rag_system, answer_query
 
 load_dotenv()
-
-from rag import build_rag_system, answer_query
 
 def anonymize_csv(file_path: str):
     """Anonymizes sensitive data in the CareLink CSV file."""
@@ -18,7 +16,7 @@ def anonymize_csv(file_path: str):
         with open(file_path, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
             rows = list(reader)
-            
+
         for i, row in enumerate(rows):
             # Anonymize row 1 (which follows the header on row 0)
             if i > 0 and len(rows[i-1]) >= 4 and "Last Name" in rows[i-1][0] and "First Name" in rows[i-1][1]:
@@ -27,12 +25,12 @@ def anonymize_csv(file_path: str):
                     row[1] = "Anonymous" # First Name
                     row[2] = ""          # Patient ID
                     row[3] = ""          # System ID
-            
+
             # Anonymize Patient DOB row
             if len(row) >= 1 and row[0] == "Patient DOB":
                 if len(row) > 1:
                     row[1] = "" # Clear DOB
-                    
+
         with open(file_path, "w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
             writer.writerows(rows)
@@ -67,11 +65,11 @@ async def get_root():
 async def upload_file(file: UploadFile = File(...)):
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed.")
-    
+
     file_path = os.path.join("data", file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    
+
     try:
         anonymize_csv(file_path)
         build_rag_system(file_path)

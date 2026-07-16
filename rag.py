@@ -6,6 +6,8 @@ from langchain_openrouter import ChatOpenRouter
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.documents import Document
+import pandas as pd
 from dotenv import load_dotenv
 VECTOR_STORE_PATH = "faiss_index"
 
@@ -15,10 +17,68 @@ load_dotenv()
 def build_rag_system(csv_path: str):
     """Loads CSV, creates vector store, and saves it locally."""
     print(f"Loading data from {csv_path}...")
-    loader = CSVLoader(file_path=csv_path, encoding="utf-8", csv_args={
-        'delimiter': ','
-    })
-    data = loader.load()
+    
+    df = pd.read_csv(csv_path, skiprows=6, low_memory=False)
+    
+    docs = []
+    print("Converting tabular data to narrative format...")
+    for index, row in df.iterrows():
+        date = str(row.get('Date', ''))
+        time = str(row.get('Time', ''))
+        
+        if pd.isna(row.get('Date')) or pd.isna(row.get('Time')):
+            continue
+            
+        narrative_parts = []
+        metadata = {"date": date, "time": time}
+        
+        def get_num(col):
+            val = row.get(col)
+            if pd.isna(val):
+                return None
+            try:
+                return float(val)
+            except ValueError:
+                return None
+
+        sg = get_num('Sensor Glucose (mg/dL)')
+        if sg is not None:
+            narrative_parts.append(f"Sensor glucose was {sg} mg/dL.")
+            metadata["sensor_glucose"] = sg
+            
+        bg = get_num('BG Reading (mg/dL)')
+        if bg is not None:
+            narrative_parts.append(f"Blood glucose reading was {bg} mg/dL.")
+            metadata["bg_reading"] = bg
+            
+        bolus_vol = get_num('Bolus Volume Delivered (U)')
+        if bolus_vol is not None and bolus_vol > 0:
+            b_type = str(row.get('Bolus Type', 'normal'))
+            if pd.isna(row.get('Bolus Type')):
+                b_type = "normal"
+            narrative_parts.append(f"Delivered a {b_type} bolus of {bolus_vol} units.")
+            metadata["bolus_delivered"] = bolus_vol
+            
+        carbs = get_num('BWZ Carb Input (exchanges)')
+        if carbs is not None and carbs > 0:
+            narrative_parts.append(f"Patient consumed {carbs} exchanges of carbs.")
+            metadata["carbs"] = carbs
+            
+        basal = get_num('Basal Rate (U/h)')
+        if basal is not None:
+            narrative_parts.append(f"Basal rate was set to {basal} U/h.")
+            metadata["basal_rate"] = basal
+            
+        alert = row.get('Alert')
+        if pd.notna(alert) and str(alert).strip() and str(alert).strip() != 'Alert':
+            narrative_parts.append(f"Pump issued an alert: {alert}.")
+            metadata["alert"] = str(alert)
+
+        if narrative_parts:
+            narrative = f"On {date} at {time}: " + " ".join(narrative_parts)
+            docs.append(Document(page_content=narrative, metadata=metadata))
+
+    print(f"Generated {len(docs)} documents.")
 
     print("Generating embeddings and building vector store...")
     embeddings = OpenAIEmbeddings(
@@ -27,8 +87,7 @@ def build_rag_system(csv_path: str):
         model="openai/text-embedding-3-small"
     )
 
-
-    vectorstore = FAISS.from_documents(data, embeddings)
+    vectorstore = FAISS.from_documents(docs, embeddings)
     vectorstore.save_local(VECTOR_STORE_PATH)
     print(f"Vector store saved to {VECTOR_STORE_PATH}")
     return vectorstore
@@ -84,3 +143,13 @@ def answer_query(query: str) -> str:
     chain = get_rag_chain()
     response = chain.invoke(query)
     return response
+
+def answer_query_stream(query: str):
+    chain = get_rag_chain()
+    for chunk in chain.stream(query):
+        yield chunk
+
+async def answer_query_astream(query: str):
+    chain = get_rag_chain()
+    async for chunk in chain.astream(query):
+        yield chunk

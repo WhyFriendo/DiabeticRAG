@@ -1,12 +1,12 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import os
 import shutil
 import csv
 from dotenv import load_dotenv
-from rag import build_rag_system, answer_query
+from rag import build_rag_system, answer_query, answer_query_astream
 
 load_dotenv()
 
@@ -77,11 +77,18 @@ async def upload_file(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing CSV: {str(e)}")
 
-@app.post("/api/chat", response_model=ChatResponse)
+@app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
     try:
-        answer = answer_query(req.query)
-        return {"answer": answer}
+        # Check if the vector store exists first
+        if not os.path.exists("faiss_index"):
+            raise FileNotFoundError("Vector store not found")
+
+        async def generate():
+            async for chunk in answer_query_astream(req.query):
+                yield chunk
+                
+        return StreamingResponse(generate(), media_type="text/plain")
     except FileNotFoundError:
         raise HTTPException(status_code=400, detail="Please upload a CareLink CSV file first.")
     except Exception as e:

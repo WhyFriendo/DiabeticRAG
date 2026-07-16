@@ -107,18 +107,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query })
             });
-            const data = await response.json();
 
             removeElement(typingId);
 
-            if (response.ok) {
-                appendSystemMessage(data.answer);
-            } else {
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
                 appendSystemMessage("Error: " + (data.detail || "Could not process request."));
+                return;
             }
+
+            // Handle streaming response
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            
+            const msgId = 'msg-' + Date.now();
+            const bubbleEl = createStreamingMessageContainer(msgId);
+            let fullText = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                fullText += chunk;
+                bubbleEl.innerHTML = formatMessageText(fullText);
+                scrollToBottom();
+            }
+
         } catch (err) {
             removeElement(typingId);
-            appendSystemMessage("Network error. Please try again.");
+            appendSystemMessage("Error: " + err.message + "\n" + err.stack);
         }
     }
 
@@ -147,6 +165,27 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         chatMessages.appendChild(msgDiv);
         scrollToBottom();
+    }
+
+    function createStreamingMessageContainer(id) {
+        const msgDiv = document.createElement('div');
+        msgDiv.id = id;
+        msgDiv.className = 'message system';
+        
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'avatar';
+        avatarDiv.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><path d="M12 8v14"></path><path d="M5 15l7-7 7 7"></path></svg>';
+        
+        const bubbleDiv = document.createElement('div');
+        bubbleDiv.className = 'bubble';
+        
+        msgDiv.appendChild(avatarDiv);
+        msgDiv.appendChild(bubbleDiv);
+        
+        chatMessages.appendChild(msgDiv);
+        scrollToBottom();
+        
+        return bubbleDiv;
     }
 
     function appendTypingIndicator() {

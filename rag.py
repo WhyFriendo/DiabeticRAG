@@ -5,11 +5,21 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_openrouter import ChatOpenRouter
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.documents import Document
+from operator import itemgetter
 import pandas as pd
 from dotenv import load_dotenv
 VECTOR_STORE_PATH = "faiss_index"
+
+store = {}
+
+def get_session_history(session_id: str):
+    if session_id not in store:
+        store[session_id] = InMemoryChatMessageHistory()
+    return store[session_id]
 
 load_dotenv()
 
@@ -124,6 +134,7 @@ def get_rag_chain():
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
+        MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
     ])
 
@@ -131,25 +142,41 @@ def get_rag_chain():
         return "\n\n".join(doc.page_content for doc in docs)
 
     rag_chain = (
-        {"context": retriever | format_docs, "input": RunnablePassthrough()}
+        RunnablePassthrough.assign(context=itemgetter("input") | retriever | format_docs)
         | prompt
         | llm
         | StrOutputParser()
     )
 
-    return rag_chain
+    conversational_chain = RunnableWithMessageHistory(
+        rag_chain,
+        get_session_history,
+        input_messages_key="input",
+        history_messages_key="chat_history",
+    )
 
-def answer_query(query: str) -> str:
+    return conversational_chain
+
+def answer_query(query: str, session_id: str = "default") -> str:
     chain = get_rag_chain()
-    response = chain.invoke(query)
+    response = chain.invoke(
+        {"input": query},
+        config={"configurable": {"session_id": session_id}}
+    )
     return response
 
-def answer_query_stream(query: str):
+def answer_query_stream(query: str, session_id: str = "default"):
     chain = get_rag_chain()
-    for chunk in chain.stream(query):
+    for chunk in chain.stream(
+        {"input": query},
+        config={"configurable": {"session_id": session_id}}
+    ):
         yield chunk
 
-async def answer_query_astream(query: str):
+async def answer_query_astream(query: str, session_id: str = "default"):
     chain = get_rag_chain()
-    async for chunk in chain.astream(query):
+    async for chunk in chain.astream(
+        {"input": query},
+        config={"configurable": {"session_id": session_id}}
+    ):
         yield chunk

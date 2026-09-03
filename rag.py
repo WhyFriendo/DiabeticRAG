@@ -1,17 +1,19 @@
 import os
-from langchain_community.document_loaders.csv_loader import CSVLoader
-from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings
-from langchain_openrouter import ChatOpenRouter
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_core.chat_history import InMemoryChatMessageHistory
-from langchain_core.documents import Document
 from operator import itemgetter
+
 import pandas as pd
 from dotenv import load_dotenv
+from langchain_community.document_loaders.csv_loader import CSVLoader
+from langchain_community.vectorstores import FAISS
+from langchain_core.chat_history import InMemoryChatMessageHistory
+from langchain_core.documents import Document
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_openai import OpenAIEmbeddings
+from langchain_openrouter import ChatOpenRouter
+
 VECTOR_STORE_PATH = "faiss_index"
 
 store = {}
@@ -27,21 +29,21 @@ load_dotenv()
 def build_rag_system(csv_path: str):
     """Loads CSV, creates vector store, and saves it locally."""
     print(f"Loading data from {csv_path}...")
-    
+
     df = pd.read_csv(csv_path, skiprows=6, low_memory=False)
-    
+
     docs = []
     print("Converting tabular data to narrative format...")
     for index, row in df.iterrows():
         date = str(row.get('Date', ''))
         time = str(row.get('Time', ''))
-        
+
         if pd.isna(row.get('Date')) or pd.isna(row.get('Time')):
             continue
-            
+
         narrative_parts = []
         metadata = {"date": date, "time": time}
-        
+
         def get_num(col):
             val = row.get(col)
             if pd.isna(val):
@@ -54,31 +56,31 @@ def build_rag_system(csv_path: str):
         sg = get_num('Sensor Glucose (mg/dL)')
         if sg is not None:
             narrative_parts.append(f"Sensor glucose was {sg} mg/dL.")
-            metadata["sensor_glucose"] = sg
-            
+            metadata["sensor_glucose"] = str(sg)
+
         bg = get_num('BG Reading (mg/dL)')
         if bg is not None:
             narrative_parts.append(f"Blood glucose reading was {bg} mg/dL.")
-            metadata["bg_reading"] = bg
-            
+            metadata["bg_reading"] = str(bg)
+
         bolus_vol = get_num('Bolus Volume Delivered (U)')
         if bolus_vol is not None and bolus_vol > 0:
             b_type = str(row.get('Bolus Type', 'normal'))
             if pd.isna(row.get('Bolus Type')):
                 b_type = "normal"
             narrative_parts.append(f"Delivered a {b_type} bolus of {bolus_vol} units.")
-            metadata["bolus_delivered"] = bolus_vol
-            
+            metadata["bolus_delivered"] = str(bolus_vol)
+
         carbs = get_num('BWZ Carb Input (exchanges)')
         if carbs is not None and carbs > 0:
             narrative_parts.append(f"Patient consumed {carbs} exchanges of carbs.")
-            metadata["carbs"] = carbs
-            
+            metadata["carbs"] = str(carbs)
+
         basal = get_num('Basal Rate (U/h)')
         if basal is not None:
             narrative_parts.append(f"Basal rate was set to {basal} U/h.")
-            metadata["basal_rate"] = basal
-            
+            metadata["basal_rate"] = str(basal)
+
         alert = row.get('Alert')
         if pd.notna(alert) and str(alert).strip() and str(alert).strip() != 'Alert':
             narrative_parts.append(f"Pump issued an alert: {alert}.")
